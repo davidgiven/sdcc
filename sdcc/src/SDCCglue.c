@@ -1610,14 +1610,22 @@ emitStaticSeg (memmap *map, struct dbuf_s *oBuf)
                   emitDebugSym (oBuf, sym);
                   dbuf_printf (oBuf, " == .\n");
                 }
-              dbuf_printf (oBuf, "%s:\n", sym->rname);
               /* special case for character strings */
               if (IS_ARRAY (sym->type) && IS_CHAR (sym->type->next) && SPEC_CVAL (sym->etype).v_char)
                 {
+                  
+                  if (options.const_seg)
+                  {
+                    dbuf_tprintf (&code->oBuf, "\t!area\n", options.const_seg);
+                  }
+                  dbuf_printf (oBuf, "%s:\n", sym->rname);
                   printChar (oBuf, SPEC_CVAL (sym->etype).v_char, size);
+                  if (options.const_seg)
+                    dbuf_tprintf (oBuf, "\t!areacode\n", options.code_seg);
                 }
               else
                 {
+                  dbuf_printf (oBuf, "%s:\n", sym->rname);
                   dbuf_tprintf (oBuf, "\t!ds\n", (unsigned int) size & 0xffff);
                 }
             }

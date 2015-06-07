@@ -4458,6 +4458,12 @@ genFunction (const iCode * ic)
         }
     }
 
+  /* We have 4 byte stacked on a call for an external banker and must
+     do our own adjustment. Any explicit 'far' has already been done
+     and is different, so don't adjust twice */
+  if (z80_opts.externalBanker && !FUNC_BANKED(ftype))
+    _G.stack.param_offset += 2;
+
   if (bcInUse)
     {
       emit2 ("push bc");
@@ -4473,6 +4479,7 @@ genFunction (const iCode * ic)
     }
 
   _G.calleeSaves.pushedDE = deInUse;
+  
 
   /* adjust the stack for the function */
 //  _G.stack.last = sym->stack;
@@ -4497,6 +4504,23 @@ genFunction (const iCode * ic)
     {
       if (!regalloc_dry_run)
         _G.omitFramePtr = TRUE;
+    }
+  else if (!_G.omitFramePtr && IS_Z80 && optimize.codeSize && sym->stack < 256) 
+    {
+      /* The Z80 entry is very bulky, so for a small code binary turn it
+         into a helper call. Bonus points for them using an RST. Even as
+         a call this saves us 5 bytes per entry with no stack adjust and
+         10 per function with. Using an RST saves us 7 and 12. We could
+         slightly improve the call case by spotting common values and
+         having multiple helpers */
+      if (sym->stack > 2)
+        emit2 ("!enterss", -sym->stack);
+      else {
+        /* for 1 or 2 bytes its cheaper to adjust the stack inline */
+        emit2 ("!enters");
+        adjustStack (-sym->stack, !IS_TLCS90, TRUE, TRUE, !IY_RESERVED);
+      }
+      _G.stack.pushed = 0;
     }
   else if (sym->stack)
     {
